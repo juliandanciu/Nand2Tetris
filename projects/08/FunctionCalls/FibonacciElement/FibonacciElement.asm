@@ -4,7 +4,7 @@ D=A
 @SP
 M=D
 //call Sys.init 0
-@FUNC_RETURN_0
+@Sys.init_RETURN_0
 D=A
 @SP
 A=M
@@ -52,7 +52,7 @@ D=D-1
 M=D
 @Sys.init
 0;JMP
-(FUNC_RETURN_0)
+(Sys.init_RETURN_0)
 //function Main.fibonacci 0
 (Main.fibonacci)
 //push argument 0
@@ -186,7 +186,7 @@ M=M-D
 @SP
 M=M-1
 //call Main.fibonacci 1
-@FUNC_RETURN_1
+@Main.fibonacci_RETURN_1
 D=A
 @SP
 A=M
@@ -235,7 +235,7 @@ D=D-1
 M=D
 @Main.fibonacci
 0;JMP
-(FUNC_RETURN_1)
+(Main.fibonacci_RETURN_1)
 //push argument 0
 @0
 D=A
@@ -264,7 +264,7 @@ M=M-D
 @SP
 M=M-1
 //call Main.fibonacci 1
-@FUNC_RETURN_2
+@Main.fibonacci_RETURN_2
 D=A
 @SP
 A=M
@@ -313,7 +313,7 @@ D=D-1
 M=D
 @Main.fibonacci
 0;JMP
-(FUNC_RETURN_2)
+(Main.fibonacci_RETURN_2)
 //add
 @SP
 A=M-1
@@ -380,7 +380,7 @@ M=D
 @SP
 M=M+1
 //call Main.fibonacci 1
-@FUNC_RETURN_3
+@Main.fibonacci_RETURN_3
 D=A
 @SP
 A=M
@@ -429,7 +429,7 @@ D=D-1
 M=D
 @Main.fibonacci
 0;JMP
-(FUNC_RETURN_3)
+(Main.fibonacci_RETURN_3)
 //label WHILE
 (Sys.init$WHILE)
 //goto WHILE

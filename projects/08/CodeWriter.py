@@ -5,8 +5,6 @@ class CodeWriter:
         self.end_hash = 0
         self.return_hash = 0
         self.current_vm_file = 'init_vm_file'
-        #self.vm_function_stack = [];
-        #self.vm_function_stack.append('init_vm_function')
         self.current_vm_function = 'init_vm_function'
     
     #informs the CodeWriter that the translation of a new VM file is started 
@@ -114,10 +112,9 @@ class CodeWriter:
     def writeInit(self):
         self.asm_file.write('//bootstrap code\n')
         self.asm_file.write('@256\nD=A\n@SP\nM=D\n')
-        #self.asm_file.write('@Sys.init\n0;JMP\n')
-        #now we need to call Sys.init
-        #self.vm_function_stack.append('Sys.init')
+        #need to understand the bootscript better
         self.writeCall('Sys.init', '0')
+
 
     
     #writes assemby code that effects the label command
@@ -139,7 +136,7 @@ class CodeWriter:
         self.asm_file.write('//call ' + functionName + ' ' + numArgs + '\n')
         #push return address
         self.asm_file.write(
-            '@FUNC_RETURN_' + str(self.return_hash) + '\n' +
+            '@' + functionName + '_RETURN_' + str(self.return_hash) + '\n' +
             'D=A\n' +
             '@SP\n' +
             'A=M\n' +
@@ -201,7 +198,7 @@ class CodeWriter:
             '@' + functionName + '\n' +
             '0;JMP\n' +
             #(return address)
-            '(FUNC_RETURN_' + str(self.return_hash) + ')\n'
+            '(' + functionName + '_RETURN_' + str(self.return_hash) + ')\n'
         )
         
         #increment the hash function to create unique labels

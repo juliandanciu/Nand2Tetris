@@ -2,28 +2,28 @@
 # it into Jack-language tokens, as specified by the Jack grammar. 
 
 class JackTokenizer:
-    keyword_map = {
-        'class': 'CLASS',
-        'constructor': 'CONSTRUCTOR',
-        'function': 'FUNCTION',
-        'method': 'METHOD',
-        'field': 'FIELD',
-        'static': 'STATIC',
-        'var': 'VAR',
-        'int': 'INT',
-        'char': 'CHAR',
-        'boolean': 'BOOLEAN',
-        'void': 'VOID',
-        'true': 'TRUE',
-        'false': 'FALSE',
-        'null': 'NULL',
-        'this': 'THIS',
-        'let': 'LET',
-        'do': 'DO',
-        'if': 'IF',
-        'else': 'ELSE',
-        'while': 'WHILE',
-        'return': 'RETURN'
+    keyword_set = {
+        'class',
+        'constructor',
+        'function',
+        'method',
+        'field',
+        'static',
+        'var',
+        'int',
+        'char',
+        'boolean',
+        'void',
+        'true',
+        'false',
+        'null',
+        'this',
+        'let',
+        'do',
+        'if',
+        'else',
+        'while',
+        'return'
     } 
 
     symbol_set = {
@@ -47,20 +47,23 @@ class JackTokenizer:
         '=',
         '~'
     }
+
+    
     #opens the input file/stream and gets ready to tokenize it.
     def __init__(self, input_file):
         print('Initializing the JackTokenizer')
         self.f = open(input_file, 'r')
         self.current_token = 'still init??'
-        self.currentChar = None
-        
-        
+        self.token_type = None
         
 
+    def getCurrentToken(self):
+        return self.current_token
     #do we have more tokens in the input?
     def hasMoreTokens(self):
-
-        #Returns Boolean
+        if self.token_type == 'EOF':
+            return False 
+        #else
         return True
 
     #Gets the next token from the input and makes it the current token
@@ -85,31 +88,39 @@ class JackTokenizer:
                 return self.current_token
 
         #is it a string??
+        #readUntilEndOfString sets tokentype to STRING_CONST
         if buffer == '"':
-            print('start of a string')
             self.readUntilEndOfString()
+            self.token_type = 'STRING_CONST'
             return self.current_token
         
         #is it an integer??
         if buffer.isdigit():
-            print('start of an integer')
             self.readUntilEndOfInteger(buffer)
+            self.token_type = 'INT_CONST'
             return self.current_token
 
         #is it a letter or underscore??
         if self.charIsAlphaOrUnderscore(buffer):
             self.readUntilEndOfKeywordOrIdentifier(buffer)
+            if self.current_token in self.keyword_set:
+                self.token_type = 'KEYWORD'
+            else:
+                self.token_type = 'IDENTIFIER'
+            
             return self.current_token
 
         #is it a symbol??
         if buffer in self.symbol_set:
-            print('buffer is in symbol set')
             self.current_token = buffer
+            self.token_type = 'SYMBOL'
+
             return self.current_token
 
         
         
         self.current_token = '@EOF@'
+        self.token_type = 'EOF'
         return self.current_token
         
 
@@ -119,16 +130,14 @@ class JackTokenizer:
         self.f.seek(last_pos)
         return next_char    
 
+    #consumes until it encounters \n in the file stream
     def readUntilEndOfLine(self):
-        print('read until end of line function')
-    
         buffer = self.f.read(1)
         while buffer != '\n':
             buffer = self.f.read(1)
 
+    #consumes until it encounters */ in the file stream
     def readUntilEndOfComment(self):
-        print('read until end of comment function')
-        
         while True:
             buffer = self.f.read(1)
             while buffer != '*':
@@ -142,8 +151,6 @@ class JackTokenizer:
                 self.f.seek(last_pos)
         
     def readUntilEndOfString(self):
-        print('read until end of string function')
-
         token = ''
         while True:
             buffer = self.f.read(1)
@@ -155,8 +162,6 @@ class JackTokenizer:
         self.current_token = token
 
     def readUntilEndOfInteger(self, startChar):
-        print('read until end of integer function')
-
         token = startChar
         while True:
             buffer = self.f.read(1)
@@ -171,8 +176,6 @@ class JackTokenizer:
     
 
     def readUntilEndOfKeywordOrIdentifier(self, startChar):
-        print('read until end of word function')
-
         token = startChar
         while True:
             buffer = self.f.read(1)
@@ -193,60 +196,35 @@ class JackTokenizer:
 
     #returns the type of the current token
     def tokenType(self):
-        tokenTypes = {
-            'KEYWORD', 
-            'SYMBOL', 
-            'IDENTIFIER', 
-            'INT_CONST', 
-            'STRING_CONST'
-        }
-        return
+        return self.token_type
     
     #Returns the keyword which is the current token.
     #Should be called only when tokenType() is KEYWORD
     def keyWord(self):
-        keyWords = {
-            'CLASS',
-            'METHOD',
-            'FUNCTION',
-            'CONSTRUCTOR',
-            'INT',
-            'BOOLEAN',
-            'CHAR',
-            'VOID',
-            'VAR',
-            'STATIC',
-            'FIELD',
-            'LET',
-            'DO',
-            'IF',
-            'ELSE',
-            'WHILE',
-            'RETURN',
-            'TRUE',
-            'FALSE',
-            'NULL',
-            'THIS'
-        }
-        return
+        if self.token_type == 'KEYWORD':
+            return self.current_token
 
     #returns the character which is the current token
     #should be called only when tokenType() is SYMBOL
     def symbol(self):
-        return
+        if self.token_type == 'SYMBOL':
+            return self.current_token
 
     #Returns the identifier which is the current token
     #should be called only when tokenType() is IDENTIFIER
     def identifier(self):
-        return
-
+        if self.token_type == 'IDENTIFIER':
+            return self.current_token
+        
     #returns the integer value of the current token.    
     #should be called only when tokenType() is INT_CONST
     def intVal(self):
-        return
+        if self.token_type == 'INT_CONST':
+            return self.current_token
     
     #returns the string value of the current token, without the double quotes
     #should be called only when tokenType() is STRING_CONST
     def stringVal(self):
-        return    
+        if self.token_type == 'STRING_CONST':
+            return self.current_token   
         

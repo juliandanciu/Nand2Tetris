@@ -1,0 +1,388 @@
+public class OpportunityTriggerHelper {
+	public static final String NO_ACCOUNT_ERROR = 'Please select an account.';
+	public static final String NO_PARENT_ENROLLMENT_ERROR = 'Please make sure that the associated account has a valid Parent Enrollment value (with a relevant Pricebook for the enrollment range).';
+
+	public static final String CLOSED_WON = 'Closed Won';
+	public static final String RENEWAL_RECORD_TYPE = 'Renewal';
+	private static final String STAGE_NAME_RENEWAL_QUEUE = 'Renewal Queue';
+
+	public void doBeforeInsert(List<Opportunity> triggerNew) {
+		setPricebookBasedOnEnrollment(triggerNew);
+	}
+
+	public void doAfterUpdate(Map<Id, Opportunity> oldMap, Map<Id, Opportunity> newMap) {
+        //collect opportunities whose Promotion__c values have changed
+		Map<Id, Opportunity> oppsWithUpdatedPromotion = new Map<Id, Opportunity>();
+		for (Id oppId : newMap.keySet()) {
+			if (oldMap.get(oppId).Promotion__c != newMap.get(oppId).Promotion__c) {
+				oppsWithUpdatedPromotion.put(oppId, newMap.get(oppId));
+			}
+		}
+
+		createRenewalOpportunityAndLineItems(oldMap, newMap);
+	}
+
+
+	/**
+	 * @description When a user closed won an opp, another opp should be created with the same products.  
+	 *  Prices in the new opp, should either follow contract prices or the standard pricebook
+	 */
+	// collect ids of opportunities that have already run through the trigger to prevent duplicate renewal creation
+	private static Set<Id> processedClosedWonOpps = new Set<Id>();
+	/*###############ORIGINAL ORIGINAL ORIGINAL ################*/
+    @TestVisible
+	private void createRenewalOpportunityAndLineItems(Map<Id, Opportunity> oldMap, Map<Id, Opportunity> newMap) {
+        //create map of the OpportunityName to highest Renewal Number
+		Map<String, Integer> existingRenewalOppNames = this.getExistingRenewalOpportunityNames(newMap.values());
+
+		/* ----- COLLECT OPPORTUNITIES WHOSE STAGENAME HAS BEEN CHANGED TO CLOSED WON ----- */
+		//collect opportunity ids from this execution context
+		Set<Id> flowOppIds = new Set<Id>();
+        Set<Id> notFlowOppIds = new Set<Id>();
+
+
+		Set<Id> oppIds = new Set<Id>();
+		//collect map of opp ids to related contact ids
+		Set<Id> contractIds = new Set<Id>();
+		for (Id oppId : newMap.keySet()) {
+			
+            String oppName = newMap.get(oppId).Name;
+			//split the name of the opportunity by Term ==> can either be a 
+			List<String> oppNameSplit = oppName.split(' Term ');
+
+			//default to not creating a renewal opportunity
+			Boolean createRenewalOpp = false;
+			//if the opp in the trigger context is New Business and there aren't any renewal opportunities for it ==> create new renewal opp
+			if (oppNameSplit.size() == 1 && existingRenewalOppNames.get(oppName) == 1) {
+				createRenewalOpp = true;
+			}
+			//else if this opp is the latest renewal opp ==> create new opp
+			else if (oppNameSplit.size() == 2) {
+				String oppNameBase = oppNameSplit[0].split(' - ')[0];
+				Integer thisRenewalCount = Integer.valueOf(oppNameSplit[1]);
+				
+				//if this opp is the latest Renewal Opp ==> allow creation of new Renewal Opp
+				createRenewalOpp = thisRenewalCount == existingRenewalOppNames.get(oppNameBase);	
+			}
+
+			//only collect opp ids for opps whose stage name has been changed to CLOSED WON, the trigger in context is last renewal opp,
+			// and the opportunity hasn't already been processed in this context
+			if (
+				oldMap.get(oppId).Approved__c == false && 
+				newMap.get(oppId).Approved__c == true &&
+				createRenewalOpp &&
+				!processedClosedWonOpps.contains(oppId)
+			) {
+				
+                //collect opp id
+				oppIds.add(oppId);
+				//collect related contract ids
+				Id contractId = newMap.get(oppId).ContractId;
+				
+				if (contractId != null) {
+                    contractIds.add(contractId);
+                    notFlowOppIds.add(oppId);
+                } else {
+                    //contract field is not populated 
+                    //create the renewal using the flow??
+                    flowOppIds.add(oppId);
+                    
+                }
+
+				//collect id of handled opportunity
+				
+				processedClosedWonOpps.add(oppId);
+			}
+		}
+
+        
+        
+		
+		/* ----- QUERY FOR RELATED OBJECTS ----- */
+		//query for newly closed won opportunities / their line items for relevant opps
+	
+        
+		Map<Id, Opportunity> previousOppMap = this.getOpportunities(notFlowOppIds);
+        
+
+		//query for contracts relevant to the collected opps
+		Map<Id, Contract> contracts = this.getContracts(contractIds);
+
+		//set of pricebook and product ids used to query for relevant pricebook entries
+		Set<Id> pricebookIdsAndProductIds = new Set<Id>();
+		//map of (pricebookId + productId) : List of opp line items ==> the pricebookId + productId string is used as a unique key for matching
+		//  the opp line item to a pricebook entry
+		Map<String, List<OpportunityLineItem>> pricebookIdAndProductIdToNewOppLineItems = new Map<String, List<OpportunityLineItem>>();
+
+		//collect map of opp id + product in this opportunity to the opp's contract price
+		Map<String, Contract_Price__c> oppIdAndProductIdToContractPrice = new Map<String, Contract_Price__c>();
+
+		/* ----- CREATE NEW RENEWAL OPPORTUNITIES ----- */
+		//create and insert new opportunities with a record type of Renewal
+		Map<Id, Opportunity> renewalOpps = this.createRenewalOpportunities(previousOppMap.values(), existingRenewalOppNames);
+		//loop through the new renewal opps to create new opp line items
+		for (Opportunity renewalOpp : renewalOpps.values()) {
+			//the previous opportunity (that the renewal opp was created from)
+			Opportunity previousOpp = previousOppMap.get(renewalOpp.Previous_Opportunity__c);
+			//get the contract associated with the previous opportunity
+			Contract contract = contracts.get(previousOpp.ContractId);
+
+			//if a contract exists for the previous opp and the opp's close date falls within the contract's term ==> use contract price
+			if (
+				contract != null &&
+				previousOpp.CloseDate >= contract.StartDate &&
+				previousOpp.CloseDate <= contract.EndDate
+			) {
+				//collect contract prices for specific opp id / product id combinations
+				for (Contract_Price__c contractPrice : contract.Contract_Prices__r) {
+					//the renewal opp id and product id used as a unique key to set contract prices on opp line items
+					String oppIdAndProductId = String.valueOf(renewalOpp.Id) + String.valueOf(contractPrice.Product__c);
+					//collect the contract prices
+					oppIdAndProductIdToContractPrice.put(oppIdAndProductId, contractPrice);
+				}
+			}
+
+			//loop through opp line items from previous opp for creation in new opp
+			for (OpportunityLineItem previousOli : previousOpp.OpportunityLineItems) {
+				//if the term end date of the opportunity is different than that of the opportunity product ==> do not create opp line item
+				if (previousOli.Term_End_Date__c != previousOpp.Term_End_Date__c) continue;
+
+				//the product id for this opportunity line item
+				Id productId = previousOli.Product2Id;
+				pricebookIdsAndProductIds.add(productId);
+				//the pricebook id relevant to this renewal opportunity (set by another trigger)
+				Id pricebookId = renewalOpp.Pricebook2Id;
+				pricebookIdsAndProductIds.add(pricebookId);
+
+				//build opp line item from previous opp and previous opp line item
+				pricebookIdAndProductIdToNewOppLineItems = this.createOpportunityLineItem(renewalOpp, previousOli, pricebookIdAndProductIdToNewOppLineItems);
+			}
+		}
+
+		//collect new opp line items
+		List<OpportunityLineItem> newOppLineItems = new List<OpportunityLineItem>();
+		//query for relevant pricebook entries
+		List<PricebookEntry> pricebookEntries = this.getPricebookEntries(pricebookIdsAndProductIds);
+		//set pricebook entry ids to opportunity line item
+		for (PricebookEntry pbe : pricebookEntries) {
+			//create same unique key to get pricebook entries relevant to this pricebook entry
+			String pricebookIdAndProductId = String.valueOf(pbe.Pricebook2Id) + String.valueOf(pbe.Product2Id);
+
+			//loop through the opp line items with this pricebook / product combination
+			for (OpportunityLineItem oli : pricebookIdAndProductIdToNewOppLineItems.get(pricebookIdAndProductId)) {
+				//set the pricebook entry id of this opp line item
+				oli.PricebookEntryId = pbe.Id;
+				
+				//create unique key of opp id to product id to get & set the contract price if it exists
+				String oppIdAndProductId = String.valueOf(oli.OpportunityId) + String.valueOf(pbe.Product2Id);
+				
+				//contract price object for this opp line item
+				Contract_Price__c contractPrice = oppIdAndProductIdToContractPrice.get(oppIdAndProductId);
+
+				//if the related contract has a valid contract price for this product ==> set the price
+				if (
+					contractPrice != null &&
+					oli.Term_Start_Date__c >= contractPrice.Term_Start_Date__c &&
+					oli.Term_End_Date__c <= contractPrice.Term_End_Date__c
+				) { 
+					oli.TotalPrice = contractPrice.Price__c;
+				}
+				//else ==> set the total price to the unit price * quantity
+				else {
+					oli.TotalPrice = pbe.UnitPrice * oli.Quantity;
+				}
+
+				//update the opp line item term dates
+				if (oli.Term_Start_Date__c != null) oli.Term_Start_Date__c = oli.Term_Start_Date__c.addYears(1);
+				if (oli.Term_End_Date__c != null) oli.Term_End_Date__c = oli.Term_End_Date__c.addYears(1);
+
+				//collect new opp line items for insertion
+				newOppLineItems.add(oli);  
+			} 
+		}
+
+		//insert new opp line items
+		insert newOppLineItems;
+	}
+
+	
+
+	/**
+	 * @description Creates and inserts renewal opportunities from Closed Won Opportunities in trigger context
+	 * @return {List<Opportunity>} new renewal opps 
+	 */
+	private Map<Id, Opportunity> createRenewalOpportunities(List<Opportunity> previousOpportunities, Map<String, Integer> existingRenewalOppNames) {
+		if (previousOpportunities.size() == 0) return new Map<Id, Opportunity>();
+
+        //query for the Id of the Opportunity Record Type: 'Renewal'
+        Id renewalRecordTypeId = this.getRecordTypeId(RENEWAL_RECORD_TYPE);            
+
+		//create list of renewal opportunities that will be inserted
+		List<Opportunity> renewalOpps = new List<Opportunity>();
+		for (Opportunity opp : previousOpportunities) {
+			List<String> oppNameSplit = opp.Name.split(' Term ');
+
+			String oppNameBase = oppNameSplit[0].split(' - ')[0];
+			Integer nextRenewalCount = existingRenewalOppNames.get(oppNameBase) + 1;
+
+			//create new opp with the same account, the record type of Renewal, and the previous opp set
+			Date newStartDate = opp.Term_End_Date__c.addDays(1);
+			Opportunity newOpp = new Opportunity(
+				Name = buildRenewalOppName(oppNameBase, nextRenewalCount),
+				StageName = STAGE_NAME_RENEWAL_QUEUE,
+				Term_Start_Date__c = newStartDate,
+				Term_End_Date__c = newStartDate.addYears(1).addDays(-1),
+				CloseDate = newStartDate.addDays(-60),
+				AccountId = opp.AccountId, 
+				RecordTypeId = renewalRecordTypeId, 
+				Previous_Opportunity__c = opp.Id,
+                Previous_Contract__c = opp.ContractId,
+				ContractId = opp.ContractId
+			);
+			renewalOpps.add(newOpp); 
+		}
+
+		//insert the new renewal opps
+		insert renewalOpps;
+
+		//collect the newly inserted opp ids for next query
+		Set<Id> renewalOppIds = new Set<Id>();
+		for (Opportunity opp : renewalOpps) renewalOppIds.add(opp.Id);
+
+		//query for opportunities to get Pricebook2Id (which is set in an Opportunity after insert trigger)
+		return this.getOpportunities(renewalOppIds); 
+	}
+
+	/**
+	 * @description Builds OpportunityLineItem
+	 * @return {Map<String, List<OpportunityLineItem>>} Map of unique string to new opportunity line items 
+	 */
+	private Map<String, List<OpportunityLineItem>> createOpportunityLineItem(Opportunity renewalOpp, OpportunityLineItem previousOli, Map<String, List<OpportunityLineItem>> pricebookIdAndProductIdToNewOppLineItems) {
+		//create a new opp line item
+		OpportunityLineItem newOli = new OpportunityLineItem(
+			OpportunityId = renewalOpp.Id,
+			Quantity = previousOli.Quantity, 
+			//temporarily set the start and end dates to the previous opp line item for future contract price checks
+			//	==> will be updated to new term when setting opp line item total price
+			Term_Start_Date__c = previousOli.Term_Start_Date__c,
+			Term_End_Date__c = previousOli.Term_End_Date__c
+		);
+
+		//the pricebook id and product id used as a unique string to relate opp line items to pricebook entries
+		String pricebookIdAndProductId = String.valueOf(renewalOpp.Pricebook2Id) + String.valueOf(previousOli.Product2Id);
+		//collect opp line items in map
+		if (!pricebookIdAndProductIdToNewOppLineItems.containsKey(pricebookIdAndProductId)) pricebookIdAndProductIdToNewOppLineItems.put(pricebookIdAndProductId, new List<OpportunityLineItem>());
+		pricebookIdAndProductIdToNewOppLineItems.get(pricebookIdAndProductId).add(newOli);
+
+		return pricebookIdAndProductIdToNewOppLineItems;
+	}
+
+	/** 
+	 * @description Builds the Opportunity name for the renewal opp
+	 * @return {String} name 
+	 */
+	private String buildRenewalOppName(String previousOppName, Integer termNum) {
+		//Generic Name Format: OpportunityName - Renewal Term 1
+		return previousOppName + ' - Renewal Term ' + termNum;
+	}
+
+	/**
+	 * @description Gets opportunities
+	 * @return {Map<Id, Opportunity>} Map of opportunities
+	 */
+	private Map<Id, Opportunity> getOpportunities(Set<Id> oppIds) {
+		if (oppIds.size() == 0) return new Map<Id, Opportunity>();
+        
+		Map<Id, Opportunity> opps = new Map<Id, Opportunity>([
+			SELECT
+				Id,
+				Name,
+				CloseDate,
+				AccountId,
+				StageName, 
+				ContractId,
+				Pricebook2Id,
+				Term_End_Date__c,
+				Previous_Opportunity__c,
+				(
+					SELECT
+						Id,
+						Quantity,
+						Product2Id,
+						TotalPrice,
+						PricebookEntryId,
+						Term_Start_Date__c,
+						Term_End_Date__c
+					FROM OpportunityLineItems
+				)
+				FROM Opportunity opp
+				WHERE Id IN :oppIds
+		]);
+        
+        return opps;
+	}
+
+	/**
+	 * @description Gets contracts
+	 * @return {Map<Id, Contract>} Map of contracts 
+	 */
+	private Map<Id, Contract> getContracts(Set<Id> contractIds) {
+		if (contractIds.size() == 0) return new Map<Id, Contract>();
+        
+		return new Map<Id, Contract>([
+			SELECT
+				Id,
+            	StartDate,
+            	EndDate,
+				//Term_Start_Date__c,
+				//Term_End_Date__c,
+				(
+					SELECT
+						Id,
+						Price__c,
+						Product__c,
+						Contract__c,
+						Term_Start_Date__c,
+						Term_End_Date__c
+					FROM Contract_Prices__r
+				)
+			FROM Contract
+			WHERE Id IN :contractIds
+		]);
+	} 
+
+	/**
+	 * @description Gets the record type id for Renewal Opportunities
+	 * @return {Id} RecordTypeId
+	 */
+	private Id getRecordTypeId(String recordTypeName) {
+		return [
+			SELECT
+				Id,
+				Name
+			FROM RecordType
+			WHERE Name = :recordTypeName
+			LIMIT 1
+		].Id;
+	}
+
+	/**
+	 * @description Queries for pricebook entries related to the pricebook and products in trigger context
+	 * @return {List<PricebookEntry>} List of relevant pricebook entries 
+	 */
+	private List<PricebookEntry> getPricebookEntries(Set<Id> pricebookIdsAndProductIds) {
+		if (pricebookIdsAndProductIds.size() == 0) return new List<PricebookEntry>();
+        
+		return [
+			SELECT
+				Id,
+				UnitPrice,
+				Product2Id,
+				Pricebook2Id
+			FROM PricebookEntry
+			WHERE Pricebook2Id IN :pricebookIdsAndProductIds
+			AND Product2Id IN :pricebookIdsAndProductIds
+		];
+	}
+	
+}

@@ -71,9 +71,10 @@ class JackTokenizer:
     #This method should only be called if hasMoreTokens() is true
     #Initially there is no current token
     def advance(self):
-        print('just entered the advance method')
-        print('@@@@@@@@@@@@@: ' + self.current_token)
+        
+    
         buffer = self.f.read(1)
+        testvar = buffer
         while buffer == ' ' or buffer == '\n' or buffer == '\t':
             buffer = self.f.read(1)
         #is it a comment??
@@ -179,16 +180,32 @@ class JackTokenizer:
     
 
     def readUntilEndOfKeywordOrIdentifier(self, startChar):
+        print('pointer value: ')
+        
         token = startChar
         while True:
+            current_position = self.f.tell()
             buffer = self.f.read(1)
+            print('buffer@: ' + buffer)
+            print(self.f.tell())
+            
             if buffer.isdigit() or buffer.isalpha() or buffer == '_':
+                print('@True@')
                 token = token + buffer
+                print('after token assignment')
+                print(token)
+                print(self.f.tell())
+        
             else:
-                current_position = self.f.tell()
-                self.f.seek(current_position - 1)
+                print('False')
+                print(self.f.tell())
+                #current_position = self.f.tell()
+                self.f.seek(current_position)
+                #print('current_position')
+                #print(current_position - 1)
                 break
         
+
         self.current_token = token
     
     def charIsAlphaOrUnderscore(self, char):

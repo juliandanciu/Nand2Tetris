@@ -1,3 +1,4 @@
+from time import sleep
 # Removes all comments and white space from the input stream and breaks
 # it into Jack-language tokens, as specified by the Jack grammar. 
 
@@ -70,6 +71,8 @@ class JackTokenizer:
     #This method should only be called if hasMoreTokens() is true
     #Initially there is no current token
     def advance(self):
+        print('just entered the advance method')
+        print('@@@@@@@@@@@@@: ' + self.current_token)
         buffer = self.f.read(1)
         while buffer == ' ' or buffer == '\n' or buffer == '\t':
             buffer = self.f.read(1)

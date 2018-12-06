@@ -11,14 +11,6 @@ public class OpportunityTriggerHelper {
 	}
 
 	public void doAfterUpdate(Map<Id, Opportunity> oldMap, Map<Id, Opportunity> newMap) {
-        //collect opportunities whose Promotion__c values have changed
-		Map<Id, Opportunity> oppsWithUpdatedPromotion = new Map<Id, Opportunity>();
-		for (Id oppId : newMap.keySet()) {
-			if (oldMap.get(oppId).Promotion__c != newMap.get(oppId).Promotion__c) {
-				oppsWithUpdatedPromotion.put(oppId, newMap.get(oppId));
-			}
-		}
-
 		createRenewalOpportunityAndLineItems(oldMap, newMap);
 	}
 
@@ -29,7 +21,7 @@ public class OpportunityTriggerHelper {
 	 */
 	// collect ids of opportunities that have already run through the trigger to prevent duplicate renewal creation
 	private static Set<Id> processedClosedWonOpps = new Set<Id>();
-	/*###############ORIGINAL ORIGINAL ORIGINAL ################*/
+	
     @TestVisible
 	private void createRenewalOpportunityAndLineItems(Map<Id, Opportunity> oldMap, Map<Id, Opportunity> newMap) {
         //create map of the OpportunityName to highest Renewal Number
@@ -110,9 +102,10 @@ public class OpportunityTriggerHelper {
 
 		//set of pricebook and product ids used to query for relevant pricebook entries
 		Set<Id> pricebookIdsAndProductIds = new Set<Id>();
-		//map of (pricebookId + productId) : List of opp line items ==> the pricebookId + productId string is used as a unique key for matching
+		
+        //map of (pricebookId + productId) : List of opp line items ==> the pricebookId + productId string is used as a unique key for matching
 		//  the opp line item to a pricebook entry
-		Map<String, List<OpportunityLineItem>> pricebookIdAndProductIdToNewOppLineItems = new Map<String, List<OpportunityLineItem>>();
+        Map<String, List<OpportunityLineItem>> pricebookIdAndProductIdToNewOppLineItems = new Map<String, List<OpportunityLineItem>>();
 
 		//collect map of opp id + product in this opportunity to the opp's contract price
 		Map<String, Contract_Price__c> oppIdAndProductIdToContractPrice = new Map<String, Contract_Price__c>();
@@ -128,10 +121,9 @@ public class OpportunityTriggerHelper {
 			Contract contract = contracts.get(previousOpp.ContractId);
 
 			//if a contract exists for the previous opp and the opp's close date falls within the contract's term ==> use contract price
+			//or if it is evergreen, then pull it regardless
 			if (
-				contract != null &&
-				previousOpp.CloseDate >= contract.StartDate &&
-				previousOpp.CloseDate <= contract.EndDate
+				(contract != null && ((previousOpp.CloseDate >= contract.StartDate && previousOpp.CloseDate <= contract.EndDate) || remewalOpp.Evergreen__c)) 
 			) {
 				//collect contract prices for specific opp id / product id combinations
 				for (Contract_Price__c contractPrice : contract.Contract_Prices__r) {
@@ -182,12 +174,15 @@ public class OpportunityTriggerHelper {
 				//if the related contract has a valid contract price for this product ==> set the price
 				if (
 					contractPrice != null &&
-					oli.Term_Start_Date__c >= contractPrice.Term_Start_Date__c &&
-					oli.Term_End_Date__c <= contractPrice.Term_End_Date__c
+					((oli.Term_Start_Date__c >= contractPrice.Term_Start_Date__c &&
+					//added by Julian Danciu 
+					oli.Term_End_Date__c <= contractPrice.Term_End_Date__c) || previousOppMap.get(oli.Previous_Opportunity__c).Evergreen__c)
 				) { 
 					oli.TotalPrice = contractPrice.Price__c;
 				}
 				//else ==> set the total price to the unit price * quantity
+				//##########11:56 am
+				//and remove the contract???
 				else {
 					oli.TotalPrice = pbe.UnitPrice * oli.Quantity;
 				}
@@ -237,7 +232,9 @@ public class OpportunityTriggerHelper {
 				RecordTypeId = renewalRecordTypeId, 
 				Previous_Opportunity__c = opp.Id,
                 Previous_Contract__c = opp.ContractId,
-				ContractId = opp.ContractId
+				ContractId = opp.ContractId,
+				//CREATED BY JULIAN DANCIU
+				Evergreen__c = opp.Evergreen__c
 			);
 			renewalOpps.add(newOpp); 
 		}
@@ -286,70 +283,10 @@ public class OpportunityTriggerHelper {
 		return previousOppName + ' - Renewal Term ' + termNum;
 	}
 
-	/**
-	 * @description Gets opportunities
-	 * @return {Map<Id, Opportunity>} Map of opportunities
-	 */
-	private Map<Id, Opportunity> getOpportunities(Set<Id> oppIds) {
-		if (oppIds.size() == 0) return new Map<Id, Opportunity>();
-        
-		Map<Id, Opportunity> opps = new Map<Id, Opportunity>([
-			SELECT
-				Id,
-				Name,
-				CloseDate,
-				AccountId,
-				StageName, 
-				ContractId,
-				Pricebook2Id,
-				Term_End_Date__c,
-				Previous_Opportunity__c,
-				(
-					SELECT
-						Id,
-						Quantity,
-						Product2Id,
-						TotalPrice,
-						PricebookEntryId,
-						Term_Start_Date__c,
-						Term_End_Date__c
-					FROM OpportunityLineItems
-				)
-				FROM Opportunity opp
-				WHERE Id IN :oppIds
-		]);
-        
-        return opps;
-	}
+	
+    
 
-	/**
-	 * @description Gets contracts
-	 * @return {Map<Id, Contract>} Map of contracts 
-	 */
-	private Map<Id, Contract> getContracts(Set<Id> contractIds) {
-		if (contractIds.size() == 0) return new Map<Id, Contract>();
-        
-		return new Map<Id, Contract>([
-			SELECT
-				Id,
-            	StartDate,
-            	EndDate,
-				//Term_Start_Date__c,
-				//Term_End_Date__c,
-				(
-					SELECT
-						Id,
-						Price__c,
-						Product__c,
-						Contract__c,
-						Term_Start_Date__c,
-						Term_End_Date__c
-					FROM Contract_Prices__r
-				)
-			FROM Contract
-			WHERE Id IN :contractIds
-		]);
-	} 
+	
 
 	/**
 	 * @description Gets the record type id for Renewal Opportunities

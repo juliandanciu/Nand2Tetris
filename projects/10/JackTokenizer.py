@@ -180,29 +180,18 @@ class JackTokenizer:
     
 
     def readUntilEndOfKeywordOrIdentifier(self, startChar):
-        print('pointer value: ')
-        
         token = startChar
         while True:
             current_position = self.f.tell()
             buffer = self.f.read(1)
-            print('buffer@: ' + buffer)
-            print(self.f.tell())
+            
             
             if buffer.isdigit() or buffer.isalpha() or buffer == '_':
-                print('@True@')
                 token = token + buffer
-                print('after token assignment')
-                print(token)
-                print(self.f.tell())
+                
         
             else:
-                print('False')
-                print(self.f.tell())
-                #current_position = self.f.tell()
                 self.f.seek(current_position)
-                #print('current_position')
-                #print(current_position - 1)
                 break
         
 

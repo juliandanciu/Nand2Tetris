@@ -12,7 +12,6 @@ class Main {
     function void main() {
         var Array a;
         var int length;
-		length;
         var int i, sum;
 	
 	let length = Keyboard.readInt("HOW MANY NUMBERS? ");

@@ -1,27 +1,8 @@
 from JackTokenizer import JackTokenizer
+from CompilationEngine import CompilationEngine
+
 
 tok = JackTokenizer('ArrayTest/MainTest.jack')
 
-var1 = tok.advance();
-print(var1)
-var1 = tok.advance();
-print(var1)
-var1 = tok.advance();
-print(var1)
-var1 = tok.advance();
-print(var1)
-var1 = tok.advance();
-print(var1)
-var1 = tok.advance();
-print(var1)
-var1 = tok.advance();
-print(var1)
-var1 = tok.advance();
-print(var1)
-var1 = tok.advance();
-print(var1)
-var1 = tok.advance();
-print(var1)
-var1 = tok.advance();
-print(var1)
+engine = CompilationEngine(tok,'output_stream')
 

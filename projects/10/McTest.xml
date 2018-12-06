@@ -16,8 +16,6 @@
 <keyword> int </keyword>
 <identifier> length </identifier>
 <symbol> ; </symbol>
-<identifier> length </identifier>
-<symbol> ; </symbol>
 <keyword> var </keyword>
 <keyword> int </keyword>
 <identifier> i </identifier>
@@ -138,6 +136,7 @@
 <symbol> ) </symbol>
 <symbol> ; </symbol>
 <keyword> return </keyword>
+<symbol> ; </symbol>
 <symbol> } </symbol>
 <symbol> } </symbol>
 </tokens>

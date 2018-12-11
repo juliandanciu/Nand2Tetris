@@ -14,7 +14,7 @@ identifier()
 intVal
 stringVal()
 '''
-tokenizer = JackTokenizer('ArrayTest/Main.jack')
+tokenizer = JackTokenizer('ArrayTest/MainTest.jack')
 
 tokenTypeTagMap = {
     'KEYWORD' : "keyword",

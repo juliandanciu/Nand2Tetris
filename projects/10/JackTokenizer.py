@@ -73,19 +73,19 @@ class JackTokenizer:
     def advance(self):
         
     
-        buffer = self.f.read(1).decode()
+        buffer = self.f.read(1)
         while buffer == ' ' or buffer == '\n' or buffer == '\t':
-            buffer = self.f.read(1).decode()
+            buffer = self.f.read(1)
         #is it a comment??
         if buffer == '/':
             next_char = self.readNextCharacterAndRewind()
             if next_char == '*':
-                self.f.read(1).decode()
+                self.f.read(1)
                 self.readUntilEndOfComment()
                 self.advance()
                 return self.current_token
             if next_char == '/':
-                self.f.read(1).decode()
+                self.f.read(1)
                 self.readUntilEndOfLine()
                 self.advance()
                 return self.current_token
@@ -129,25 +129,25 @@ class JackTokenizer:
 
     def readNextCharacterAndRewind(self):
         last_pos = self.f.tell()
-        next_char = self.f.read(1).decode()
+        next_char = self.f.read(1)
         self.f.seek(last_pos)
         return next_char    
 
     #consumes until it encounters \n in the file stream
     def readUntilEndOfLine(self):
-        buffer = self.f.read(1).decode()
+        buffer = self.f.read(1)
         while buffer != '\n':
-            buffer = self.f.read(1).decode()
+            buffer = self.f.read(1)
 
     #consumes until it encounters */ in the file stream
     def readUntilEndOfComment(self):
         while True:
-            buffer = self.f.read(1).decode()
+            buffer = self.f.read(1)
             while buffer != '*':
-                buffer = self.f.read(1).decode()
+                buffer = self.f.read(1)
 
             last_pos = self.f.tell()
-            buffer = self.f.read(1).decode()   
+            buffer = self.f.read(1)  
             if buffer == '/':
                 break
             else:
@@ -156,7 +156,7 @@ class JackTokenizer:
     def readUntilEndOfString(self):
         token = ''
         while True:
-            buffer = self.f.read(1).decode()
+            buffer = self.f.read(1)
             if buffer == '"':
                 break
             else:
@@ -167,7 +167,7 @@ class JackTokenizer:
     def readUntilEndOfInteger(self, startChar):
         token = startChar
         while True:
-            buffer = self.f.read(1).decode()
+            buffer = self.f.read(1)
             if not buffer.isdigit():
                 position = self.f.tell()
                 self.f.seek(position - 1)
@@ -182,7 +182,7 @@ class JackTokenizer:
         token = startChar
         while True:
             current_position = self.f.tell()
-            buffer = self.f.read(1).decode()
+            buffer = self.f.read(1)
             
             
             if buffer.isdigit() or buffer.isalpha() or buffer == '_':

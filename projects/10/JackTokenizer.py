@@ -1,4 +1,3 @@
-from time import sleep
 # Removes all comments and white space from the input stream and breaks
 # it into Jack-language tokens, as specified by the Jack grammar. 
 
@@ -53,7 +52,7 @@ class JackTokenizer:
     #opens the input file/stream and gets ready to tokenize it.
     def __init__(self, input_file):
         print('Initializing the JackTokenizer')
-        self.f = open(input_file, 'rb')
+        self.f = open(input_file, 'r')
         self.current_token = 'still init??'
         self.token_type = None
         
@@ -216,6 +215,14 @@ class JackTokenizer:
     #should be called only when tokenType() is SYMBOL
     def symbol(self):
         if self.token_type == 'SYMBOL':
+            reserved_xml_dict = {
+                '<' : '&lt;',
+                '>' : '&gt;',
+                '&' : '&amp;'
+            }
+            if self.current_token in reserved_xml_dict.keys():
+                return reserved_xml_dict.get(self.current_token)
+            
             return self.current_token
 
     #Returns the identifier which is the current token

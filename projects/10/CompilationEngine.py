@@ -1,9 +1,9 @@
 #Effects the actual compilation output
+#the xml tags for compileClass, compile Expression, and compileTerm 
+#will be written inside the methods themselves
+#it might make sense to do the same for the other compileMethods??
 class CompilationEngine:
     
-    className_set = {}
-    subroutineName_set = {}
-    varName_set = {}
 
     KEYWORD = 'KEYWORD'
     SYMBOL = 'SYMBOL'
@@ -42,13 +42,17 @@ class CompilationEngine:
         self.tokenizer = tokenizer
         #goes to the first token in the stream
         self.tokenizer.advance()
+        
 
     
     #compiles a complete class
     def compileClass(self):
         #class
+        self.output.write('<class>\n')
+
         if self.tokenizer.tokenType() == self.KEYWORD and self.tokenizer.keyWord() == self.CLASS:
             self.output.write('<keyword> ' + self.tokenizer.keyWord() + ' </keyword>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()    
         else:
             raise Exception('EXPEXTED "class"')
@@ -56,6 +60,7 @@ class CompilationEngine:
         #className
         if self.tokenizer.tokenType() == self.IDENTIFIER:
             self.output.write('<identifier> ' + self.tokenizer.identifier() + ' </identifier>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expected className identifier')
@@ -63,6 +68,7 @@ class CompilationEngine:
         #{
         if self.tokenizer.tokenType() == 'SYMBOL' and self.tokenizer.symbol() == '{':
             self.output.write('<symbol> { </symbol>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expected {')
@@ -70,19 +76,26 @@ class CompilationEngine:
         
         #classVarDec*
         while self.tokenizer.tokenType() == self.KEYWORD and self.tokenizer.keyWord() in {'static', 'field'}:
+            self.output.write('<classVarDec>\n')
             self.compileClassVarDec()
+            self.output.write('</classVarDec>\n')
 
         #self.compileSubroutine()
-        if self.tokenizer.tokenType() != self.SYMBOL or self.tokenizer.symbol() != '}':
+        #subroutineDec*
+        while self.tokenizer.tokenType() == self.KEYWORD and self.tokenizer.keyWord() in {'constructor', 'function', 'method'}:
+            self.output.write('<subroutineDec>\n')
             self.compileSubroutine()
+            self.output.write('</subroutineDec>\n')
 
         #}
         if self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == '}':
             self.output.write('<symbol> } </symbol>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expected } but found ' +  self.tokenizer.current_token)
         
+        self.output.write('</class>\n')
         self.output.close()
         return
     
@@ -90,9 +103,11 @@ class CompilationEngine:
         #type
         if (self.tokenizer.tokenType() == 'KEYWORD' and self.tokenizer.keyWord() in {'int', 'char', 'boolean', 'void'}):
             self.output.write('<keyword> ' + self.tokenizer.keyWord() + ' </keyword>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         elif (self.tokenizer.tokenType() == 'IDENTIFIER') :
              self.output.write('<identifier> ' + self.tokenizer.identifier() + ' </identifier>\n')
+             print(self.tokenizer.current_token)
              self.tokenizer.advance()
         else:
             raise Exception('expected int, char, boolean, or className')
@@ -101,9 +116,11 @@ class CompilationEngine:
         #type
         if (self.tokenizer.tokenType() == 'KEYWORD' and self.tokenizer.keyWord() in {'int', 'char', 'boolean'}):
             self.output.write('<keyword> ' + self.tokenizer.keyWord() + ' </keyword>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         elif (self.tokenizer.tokenType() == 'IDENTIFIER') :
              self.output.write('<identifier> ' + self.tokenizer.identifier() + ' </identifier>\n')
+             print(self.tokenizer.current_token)
              self.tokenizer.advance()
         else:
             raise Exception('expected int, char, boolean, or className')
@@ -112,6 +129,7 @@ class CompilationEngine:
         # ('static' | 'field') 
         if self.tokenizer.tokenType() == 'KEYWORD' and self.tokenizer.keyWord() in {'static', 'field'}:
             self.output.write('<keyword> ' + self.tokenizer.keyWord() + ' </keyword>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expected static or field')
@@ -122,15 +140,18 @@ class CompilationEngine:
         #varName
         if self.tokenizer.tokenType() == 'IDENTIFIER':
             self.output.write('<identifier> ' + self.tokenizer.identifier() + ' </identifier>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expected varName identifier')
 
         while self.tokenizer.tokenType() == 'SYMBOL' and self.tokenizer.symbol() == ',':
             self.output.write('<symbol> , </symbol>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
             if self.tokenizer.tokenType() == 'IDENTIFIER':
                 self.output.write('<identifier> ' + self.tokenizer.identifier() + ' </identifier>\n')
+                print(self.tokenizer.current_token)
                 self.tokenizer.advance()
             else:
                 raise Exception('expecting identifier varName')
@@ -138,6 +159,7 @@ class CompilationEngine:
         #;
         if self.tokenizer.tokenType() == 'SYMBOL' and self.tokenizer.symbol() == ';':
             self.output.write('<symbol> ; </symbol>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expected ;')
@@ -151,7 +173,8 @@ class CompilationEngine:
     def compileSubroutine(self):
         #('constructor' | 'function' | 'method')
         if self.tokenizer.tokenType() == self.KEYWORD and self.tokenizer.keyWord() in {'constructor', 'function', 'method'}:
-            self.output.write('<keyword> ' + self.tokenizer.keyWord() + ' </keyword\n')
+            self.output.write('<keyword> ' + self.tokenizer.keyWord() + ' </keyword>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expected "constructor", "function", or "method"')
@@ -164,6 +187,7 @@ class CompilationEngine:
         # subroutineName:identifier
         if self.tokenizer.tokenType() == self.IDENTIFIER:
             self.output.write('<identifier> ' + self.tokenizer.identifier() + ' </identifier>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expected subroutineName identifier')
@@ -174,6 +198,7 @@ class CompilationEngine:
         #(
         if self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == '(':
             self.output.write('<symbol> ( </symbol>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expected symbol (')
@@ -181,38 +206,48 @@ class CompilationEngine:
         
         
         #parameterList:
+        self.output.write('<parameterList>\n')
         self.compileParameterList()
+        self.output.write('</parameterList>\n')
 
         #)
         if self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == ')':
             self.output.write('<symbol> ) </symbol>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expected symbol ) but found ' + self.tokenizer.current_token)
 
         #subroutineBody
         #expect {
+        self.output.write('<subroutineBody>\n')
         if self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == '{':
             self.output.write('<symbol> { </symbol>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expected symbol {')
         
+        
         #varDec*
         while self.tokenizer.tokenType() == self.KEYWORD and self.tokenizer.keyWord() == 'var':
+            self.output.write('<varDec>\n')
             self.compileVarDec()
+            self.output.write('</varDec>\n')
 
-
+        self.output.write('<statements>\n')
         self.compileStatements()
+        self.output.write('</statements>\n')
 
         #expect }
         if self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == '}':
             self.output.write('<symbol> } </symbol>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expected symbol }')
 
-
+        self.output.write('</subroutineBody>\n')
 
         return
 
@@ -224,17 +259,27 @@ class CompilationEngine:
         #type
         self.compileType()
 
+        if self.tokenizer.tokenType() == self.IDENTIFIER:
+            self.output.write('<identifier> ' + self.tokenizer.identifier() + ' </identifier>\n')
+            print(self.tokenizer.current_token)
+            self.tokenizer.advance()
+        else:
+            raise Exception('expected varName identifier but found' + self.tokenizer.current_token)
 
         # comma ,,,,,
         while self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == ',':
             self.output.write('<symbol> ' + self.tokenizer.symbol() + ' </symbol>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
             
+            self.compileType()
+
             if self.tokenizer.tokenType() == self.IDENTIFIER:
-                self.output.write('<identifier> ' + self.tokenizer.identifer() + ' </identifier>\n')
+                self.output.write('<identifier> ' + self.tokenizer.identifier() + ' </identifier>\n')
+                print(self.tokenizer.current_token)
                 self.tokenizer.advance()
             else:
-                raise Exception('expected varName identifier')
+                raise Exception('expected varName identifier but found' + self.tokenizer.current_token)
             
         
 
@@ -244,6 +289,7 @@ class CompilationEngine:
         # ('var') 
         if self.tokenizer.tokenType() == self.KEYWORD and self.tokenizer.keyWord() in {'var'}:
             self.output.write('<keyword> ' + self.tokenizer.keyWord() + ' </keyword>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expected keyword var')
@@ -254,15 +300,18 @@ class CompilationEngine:
         #varName
         if self.tokenizer.tokenType() == self.IDENTIFIER:
             self.output.write('<identifier> ' + self.tokenizer.identifier() + ' </identifier>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expected varName identifier')
 
         while self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == ',':
             self.output.write('<symbol> , </symbol>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
             if self.tokenizer.tokenType() == self.IDENTIFIER:
                 self.output.write('<identifier> ' + self.tokenizer.identifier() + ' </identifier>\n')
+                print(self.tokenizer.current_token)
                 self.tokenizer.advance()
             else:
                 raise Exception('expecting identifier varName')
@@ -270,6 +319,7 @@ class CompilationEngine:
         #;
         if self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == ';':
             self.output.write('<symbol> ; </symbol>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expected ;')
@@ -277,26 +327,36 @@ class CompilationEngine:
         
         return
     
-    
     def compileStatements(self):
         
         # statement*
 
         while self.tokenizer.tokenType() == self.KEYWORD and self.tokenizer.keyWord() in {'let', 'if', 'while', 'do', 'return'}:
+            
             if self.tokenizer.keyWord() == 'let':
+                self.output.write('<letStatement>\n')
                 self.compileLet()
+                self.output.write('</letStatement>\n')
             
             if self.tokenizer.keyWord() == 'if':
+                self.output.write('<ifStatement>\n')
                 self.compileIf()
+                self.output.write('</ifStatement>\n')
 
             if self.tokenizer.keyWord() == 'while':
+                self.output.write('<whileStatement>\n')
                 self.compileWhile()
+                self.output.write('</whileStatement>\n')
 
             if self.tokenizer.keyWord() == 'do':
+                self.output.write('<doStatement>\n')
                 self.compileDo()
+                self.output.write('</doStatement>\n')
 
             if self.tokenizer.keyWord() == 'return':
+                self.output.write('<returnStatement>\n')
                 self.compileReturn()
+                self.output.write('</returnStatement>\n')
 
 
         return
@@ -305,6 +365,7 @@ class CompilationEngine:
         
         if self.tokenizer.tokenType() == self.KEYWORD and self.tokenizer.keyWord() == 'do':
             self.output.write('<keyword> ' + self.tokenizer.keyWord() + ' </keyword>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expecting keyword "do"')
@@ -315,6 +376,7 @@ class CompilationEngine:
         # subroutineName:identifier subroutine name, className or varName
         if self.tokenizer.tokenType() == self.IDENTIFIER:
             self.output.write('<identifier> ' + self.tokenizer.identifier() + ' </identifier>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expected subroutineName, className or varName identifier')
@@ -322,10 +384,12 @@ class CompilationEngine:
         # .
         if self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == '.':
             self.output.write('<symbol> . </symbol>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
             # subroutineName:identifier
             if self.tokenizer.tokenType() == self.IDENTIFIER:
                 self.output.write('<identifier> ' + self.tokenizer.identifier() + ' </identifier>\n')
+                print(self.tokenizer.current_token)
                 self.tokenizer.advance()
             else:
                 raise Exception('expected subroutineName identifier')
@@ -339,16 +403,20 @@ class CompilationEngine:
         
         if self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == '(':
             self.output.write('<symbol> ' + self.tokenizer.symbol() + ' </symbol>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expected symbol (')
 
         #expressionList
+        self.output.write('<expressionList>\n')
         self.compileExpressionList()
+        self.output.write('</expressionList>\n')
 
         # )
         if self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == ')':
             self.output.write('<symbol> ) </symbol>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expected symbol )')
@@ -356,18 +424,20 @@ class CompilationEngine:
         #semi-colon ;;;;;;
         if self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == ';':
             self.output.write('<symbol> ; </symbol>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expected symbol ;')
         
 
-
         return
 
     def compileLet(self):
         #let
+        
         if self.tokenizer.tokenType() == self.KEYWORD and self.tokenizer.keyWord() == 'let':
             self.output.write('<keyword> ' + self.tokenizer.keyWord() + ' </keyword>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expecting keyword "let"')
@@ -375,18 +445,21 @@ class CompilationEngine:
         #varName
         if self.tokenizer.tokenType() == self.IDENTIFIER:
             self.output.write('<identifier> ' + self.tokenizer.identifier() + ' </identifier>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expected varName identifier')
         
         if self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == '[':
             self.output.write('<symbol> [ </symbol>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
 
             self.compileExpression()
 
             if self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == ']':
                 self.output.write('<symbol> ] </symbol>\n')
+                print(self.tokenizer.current_token)
                 self.tokenizer.advance()
             else:
                 raise Exception('expected symbol ]')
@@ -394,6 +467,7 @@ class CompilationEngine:
         # equal sign =
         if self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == '=':
             self.output.write('<symbol> = </symbol>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expected symbol =')
@@ -404,6 +478,7 @@ class CompilationEngine:
         #semi-colon ;;;;;;
         if self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == ';':
             self.output.write('<symbol> ; </symbol>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expected symbol ;')
@@ -411,8 +486,11 @@ class CompilationEngine:
         return
 
     def compileWhile(self):
+        
+        
         if self.tokenizer.tokenType() == self.KEYWORD and self.tokenizer.keyWord() == 'while':
             self.output.write('<keyword> ' + self.tokenizer.keyWord() + ' </keyword>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expecting keyword "while"')
@@ -420,6 +498,7 @@ class CompilationEngine:
         # (
         if self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == '(':
             self.output.write('<symbol> ( </symbol>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expected symbol (')
@@ -430,6 +509,7 @@ class CompilationEngine:
         # )
         if self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == ')':
             self.output.write('<symbol> ) </symbol>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expected symbol )')
@@ -438,15 +518,19 @@ class CompilationEngine:
         # {
         if self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == '{':
             self.output.write('<symbol> { </symbol>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expected symbol {')
 
+        self.output.write('<statements>\n')    
         self.compileStatements()
+        self.output.write('</statements>\n')
 
         # }
         if self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == '}':
             self.output.write('<symbol> } </symbol>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expected symbol }')
@@ -456,18 +540,20 @@ class CompilationEngine:
     def compileReturn(self):
         if self.tokenizer.tokenType() == self.KEYWORD and self.tokenizer.keyWord() == 'return':
             self.output.write('<keyword> ' + self.tokenizer.keyWord() + ' </keyword>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expecting keyword "return"')
 
         #TODO how to give reasonable error messagesf???
         # (expression)?
-        if self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == ';':
+        if self.tokenizer.current_token != ';':
             self.compileExpression()
         
         # ;
         if self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == ';':
             self.output.write('<symbol> ; </symbol>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expected symbol ;')
@@ -478,6 +564,7 @@ class CompilationEngine:
         
         if self.tokenizer.tokenType() == self.KEYWORD and self.tokenizer.keyWord() == 'if':
             self.output.write('<keyword> ' + self.tokenizer.keyWord() + ' </keyword>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expecting keyword "if"')
@@ -485,6 +572,7 @@ class CompilationEngine:
         # (
         if self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == '(':
             self.output.write('<symbol> ( </symbol>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expected symbol (')
@@ -495,6 +583,7 @@ class CompilationEngine:
         # )
         if self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == ')':
             self.output.write('<symbol> ) </symbol>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expected symbol )')
@@ -503,15 +592,19 @@ class CompilationEngine:
         # {
         if self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == '{':
             self.output.write('<symbol> { </symbol>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expected symbol {')
 
+        self.output.write('<statements>\n')    
         self.compileStatements()
+        self.output.write('</statements>\n')
 
         # }
         if self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == '}':
             self.output.write('<symbol> } </symbol>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
         else:
             raise Exception('expected symbol }')
@@ -519,138 +612,166 @@ class CompilationEngine:
         #maybe else
         if self.tokenizer.tokenType() == self.KEYWORD and self.tokenizer.keyWord() == 'else':
             self.output.write('<keyword> ' + self.tokenizer.keyWord() + ' </keyword>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
             # {
             if self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == '{':
                 self.output.write('<symbol> { </symbol>\n')
+                print(self.tokenizer.current_token)
                 self.tokenizer.advance()
             else:
                 raise Exception('expected symbol {')
             
+            self.output.write('<statements>\n')    
             self.compileStatements()
+            self.output.write('</statements>\n')
 
             # }
             if self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == '}':
                 self.output.write('<symbol> } </symbol>\n')
+                print(self.tokenizer.current_token)
                 self.tokenizer.advance()
             else:
                 raise Exception('expected symbol }')
             
         
 
-        
         return
 
     #perhaps make a set above to contain all the operators?
-    op_set = {'+', '-', '*', '/', '&', '|', '<', '>', '='}
+    op_set = {'+', '-', '*', '/', '&', '|', '<', '>', '=', '&lt;', '&gt;', '&amp;'}
     def compileExpression(self):
-
+        self.output.write('<expression>\n')
         self.compileTerm()
 
         while self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() in self.op_set:
             self.output.write('<symbol> ' + self.tokenizer.symbol() + ' </symbol>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
             self.compileTerm()
-
+        self.output.write('</expression>\n')
         return
 
     key_const_set = {'true', 'false', 'null', 'this'}
     # integerConstant | stringConstant | keywordConstant | varName  | varName[expression] | subroutineCall | (expression) | unary
     def compileTerm(self):
-        
+        self.output.write('<term>\n')
         #integerConstant
         if self.tokenizer.tokenType() == self.INT_CONST:
             self.output.write('<integerConstant> ' + self.tokenizer.intVal() + ' </integerConstant>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
+            self.output.write('</term>\n')
             return
         
         #stringConstant
         if self.tokenizer.tokenType() == self.STRING_CONST:
             self.output.write('<stringConstant> ' + self.tokenizer.stringVal() + ' </stringConstant>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
+            self.output.write('</term>\n')
             return
 
         #keywordConstant
-        if self.tokenizer.tokenType() == self.KEYWORD and self.tokenizer.keyWord() in key_const_set:
-            self.output('<keyword> ' + self.tokenizer.keyWord() + ' </keyword>\n')
+        if self.tokenizer.tokenType() == self.KEYWORD and self.tokenizer.keyWord() in self.key_const_set:
+            self.output.write('<keyword> ' + self.tokenizer.keyWord() + ' </keyword>\n')
             self.tokenizer.advance()
+            self.output.write('</term>\n')
             return
 
         #varName | varName[expression] | subroutineCall
         if self.tokenizer.tokenType() == self.IDENTIFIER:
             self.output.write('<identifier> ' + self.tokenizer.identifier() + ' </identifier>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
             if self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == '[':
                 self.output.write('<symbol> ' + self.tokenizer.symbol() + ' </symbol>\n')
+                print(self.tokenizer.current_token)
                 self.tokenizer.advance()
                 
                 self.compileExpression()
                 
                 if self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == ']':
                     self.output.write('<symbol> ' + self.tokenizer.symbol() + ' </symbol>\n')
+                    print(self.tokenizer.current_token)
                     self.tokenizer.advance()
                 else:
                     raise Exception('expected symbol ]')
             elif self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == '(':
                 self.output.write('<symbol> ' + self.tokenizer.symbol() + ' </symbol>\n')
+                print(self.tokenizer.current_token)
                 self.tokenizer.advance()
 
+                self.output.write('<expressionList>\n')
                 self.compileExpressionList()
+                self.output.write('</expressionList>\n')
 
                 if self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == ')':
                     self.output.write('<symbol> ' + self.tokenizer.symbol() + ' </symbol>\n')
+                    print(self.tokenizer.current_token)
                     self.tokenizer.advance()
                 else:
                     raise Exception('expecting symbol )')
             elif self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == '.':
                 self.output.write('<symbol> ' + self.tokenizer.symbol() + ' </symbol>\n')
+                print(self.tokenizer.current_token)
                 self.tokenizer.advance()
                 
                 if self.tokenizer.tokenType() == self.IDENTIFIER:
                     self.output.write('<identifier> ' + self.tokenizer.identifier() + ' </identifier>\n')
+                    print(self.tokenizer.current_token)
                     self.tokenizer.advance()
                 else:
                     raise Exception('expected an identifer')
 
                 if self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == '(':
                     self.output.write('<symbol> ' + self.tokenizer.symbol() + ' </symbol>\n')
+                    print(self.tokenizer.current_token)
                     self.tokenizer.advance()
 
                 
+                self.output.write('<expressionList>\n')
                 self.compileExpressionList()
+                self.output.write('</expressionList>\n')
 
                 if self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == ')':
                     self.output.write('<symbol> ' + self.tokenizer.symbol() + ' </symbol>\n')
+                    print(self.tokenizer.current_token)
                     self.tokenizer.advance()
                 else:
                     raise Exception('expecting symbol )')
                 
 
 
-
+            self.output.write('</term>\n')
             return 
 
         if self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == '(':
             self.output.write('<symbol> ' + self.tokenizer.symbol() + ' </symbol>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
 
             self.compileExpression()
 
             if self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == ')':
                 self.output.write('<symbol> ' + self.tokenizer.symbol() + ' </symbol>\n')
+                print(self.tokenizer.current_token)
                 self.tokenizer.advance()
             else:
                 raise Exception('expected closing symbol )')
             
+            self.output.write('</term>\n')
             return
 
         
         if self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() in {'-', '~'}:
             self.output.write('<symbol> ' + self.tokenizer.symbol() + ' </symbol>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
             
             self.compileTerm()
-
+            
+            self.output.write('</term>\n')
             return
 
 
@@ -668,6 +789,7 @@ class CompilationEngine:
 
         while self.tokenizer.tokenType() == self.SYMBOL and self.tokenizer.symbol() == ',':
             self.output.write('<symbol> ' + self.tokenizer.symbol() + ' </symbol>\n')
+            print(self.tokenizer.current_token)
             self.tokenizer.advance()
 
             self.compileExpression()
